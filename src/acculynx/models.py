@@ -48,11 +48,11 @@ class LeadSource(BaseModel):
 
 
 class Address(BaseModel):
-    street1: str
-    city: str
-    state: State
-    zip_code: str = Field(alias="zipCode")
-    country: Country
+    street1: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[State] = None
+    zip_code: Optional[str] = Field(None, alias="zipCode")
+    country: Optional[Country] = None
 
 
 class Contact(BaseModel):
@@ -93,8 +93,10 @@ class Job(BaseModel):
         primary_contacts = [jc.contact for jc in self.contacts if jc.is_primary]
         return primary_contacts[0] if primary_contacts else None
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = {
+        "populate_by_name": True,
+        "arbitrary_types_allowed": True
+    }
 
 
 class Customer(BaseModel):

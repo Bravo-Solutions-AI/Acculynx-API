@@ -4,6 +4,7 @@ from ..models import Job
 from ..enums import DateFilterType, SortOrder
 import os
 import mimetypes
+from ..exceptions import AccuLynxAPIError
 
 
 class JobsMixin:
@@ -21,6 +22,7 @@ class JobsMixin:
         milestones: Optional[List[str]] = None,
         sort_by: Optional[DateFilterType] = None,
         sort_order: Optional[SortOrder] = None,
+        query: Optional[str] = None,
     ) -> List[Job]:
         """Retrieve a list of jobs with filtering and sorting options."""
         params = {
@@ -42,6 +44,9 @@ class JobsMixin:
             params["sortBy"] = sort_by.value
         if sort_order:
             params["sortOrder"] = sort_order.value
+        if query:
+            params["query"] = query
+
 
         data = await self._get("/jobs", params=params)
         try:
@@ -68,28 +73,34 @@ class JobsMixin:
         page_start_index = 0
         
         while True:
-            jobs = await self.get_jobs(
-                page_size=page_size,
-                page_start_index=page_start_index,
-                includes=includes,
-                filter_by_date=filter_by_date,
-                start_date=start_date,
-                end_date=end_date,
-                milestones=milestones,
-                sort_by=sort_by,
-                sort_order=sort_order,
-            )
-            
-            if not jobs:
-                break
+            try:
+                jobs = await self.get_jobs(
+                    page_size=page_size,
+                    page_start_index=page_start_index,
+                    includes=includes,
+                    filter_by_date=filter_by_date,
+                    start_date=start_date,
+                    end_date=end_date,
+                    milestones=milestones,
+                    sort_by=sort_by,
+                    sort_order=sort_order,
+                )
                 
-            for job in jobs:
-                yield job
+                if not jobs:
+                    break
+                    
+                for job in jobs:
+                    yield job
                 
-            page_start_index += page_size
-            
-            if page_start_index >= 100000:  # API limit
-                break
+                if len(jobs) < page_size:  # We've reached the last page
+                    break
+                    
+                page_start_index += len(jobs)
+                
+            except AccuLynxAPIError as e:
+                if e.status_code == 416:  # RequestedRangeNotSatisfiable
+                    break  # We've reached the end of the available records
+                raise  # Re-raise other API errors
 
     async def get_job(
         self,
@@ -299,3 +310,45 @@ class JobsMixin:
         if response.status_code >= 400:
             self._handle_error(response)
         return response.json()
+
+    async def search_jobs(
+        self,
+        *,
+        search_term: Optional[str] = None,
+        geo_location: Optional[Dict[str, Any]] = None,
+        page_size: int = 25,
+        page_start_index: int = 0,
+        includes: Optional[List[str]] = None,
+    ) -> List[Job]:
+        """Search for jobs based on search terms and/or geographic location."""
+        if not search_term and not geo_location:
+            raise ValueError("At least one of search_term or geo_location must be provided")
+
+        params = {
+            "pageSize": min(page_size, 25),  # API limit
+            "pageStartIndex": min(page_start_index, 100000),  # API limit
+        }
+
+        if includes:
+            params["includes"] = ",".join(includes)
+
+        payload = {}
+        if search_term:
+            payload["searchTerm"] = search_term
+        if geo_location:
+            payload["geoLocation"] = geo_location
+
+
+        response = await self._client.post("/jobs/search", params=params, json=payload)
+        
+        if response.status_code >= 400:
+            self._handle_error(response)
+            
+        data = response.json()
+        try:
+            jobs = [Job.parse_obj(job) for job in data.get("items", [])]
+            print(f"Successfully parsed {len(jobs)} jobs from search")
+            return jobs
+        except Exception as e:
+            print(f"Error parsing jobs from search: {e}")
+            raise

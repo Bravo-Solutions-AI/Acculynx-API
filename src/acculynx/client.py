@@ -12,6 +12,7 @@ from .exceptions import (
 from .mixins.jobs import JobsMixin
 from .mixins.leads import LeadsMixin
 from .enums import DateFilterType, SortOrder
+from .cache import JobCache
 
 
 class AccuLynxAPI(JobsMixin, LeadsMixin):
@@ -22,6 +23,7 @@ class AccuLynxAPI(JobsMixin, LeadsMixin):
         api_key: str,
         base_url: str = "https://api.acculynx.com/api/v2",
         timeout: float = 30.0,
+        job_cache_refresh_interval: int = 3600,
     ):
         """Initialize the AccuLynx API client.
 
@@ -29,6 +31,7 @@ class AccuLynxAPI(JobsMixin, LeadsMixin):
             api_key: The API key for authentication
             base_url: The base URL for the API (defaults to v2 production API)
             timeout: Request timeout in seconds
+            job_cache_refresh_interval: How often to refresh the job cache in seconds
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
@@ -40,15 +43,30 @@ class AccuLynxAPI(JobsMixin, LeadsMixin):
                 "Accept": "application/json",
             },
         )
+        self.job_cache = JobCache(refresh_interval=job_cache_refresh_interval)
 
     async def __aenter__(self):
+        """Initialize the cache when entering the context manager."""
+        print("Initializing job cache...")
+        await self.job_cache.refresh(self)  # Initial load of the cache
+        await self.job_cache.start_refresh_task(self)  # Start the refresh task
+        print("Job cache initialized")
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.job_cache.stop_refresh_task()
         await self.close()
 
+    async def initialize_cache(self):
+        """Manually initialize the cache if not using context manager."""
+        print("Initializing job cache...")
+        await self.job_cache.refresh(self)
+        await self.job_cache.start_refresh_task(self)
+        print("Job cache initialized")
+
     async def close(self):
-        """Close the underlying HTTP client."""
+        """Close the API client and stop the cache refresh task."""
+        await self.job_cache.stop_refresh_task()
         await self._client.aclose()
 
     def _handle_error(self, response: httpx.Response) -> None:
@@ -91,4 +109,12 @@ class AccuLynxAPI(JobsMixin, LeadsMixin):
             "/customers", params={"limit": limit, "offset": offset}
         )
         return [Customer.parse_obj(customer) for customer in data["customers"]]
+
+    async def find_job_by_number(self, job_number: str) -> Optional[Job]:
+        """Find a job by its number using the cache."""
+        return await self.job_cache.get_by_number(job_number)
+
+    async def search_jobs_cached(self, query: str) -> List[Job]:
+        """Search for jobs using the cache."""
+        return self.job_cache.search(query)
   
