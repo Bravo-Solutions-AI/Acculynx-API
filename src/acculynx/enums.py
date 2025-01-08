@@ -11,3 +11,8 @@ class SortOrder(str, Enum):
     """Sort order options."""
     ASCENDING = "Ascending"
     DESCENDING = "Descending" 
+
+
+class DocumentFolderID(str, Enum):
+    INVOICES = "956ba254-3570-49c6-ab5e-cdba50b92743"
+    # Add other folder IDs as needed 

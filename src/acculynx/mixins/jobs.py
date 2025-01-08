@@ -1,7 +1,7 @@
 from datetime import date
 from typing import List, Optional, Dict, Any, AsyncIterator, BinaryIO
 from ..models import Job
-from ..enums import DateFilterType, SortOrder
+from ..enums import DateFilterType, SortOrder, DocumentFolderID
 import os
 import mimetypes
 from ..exceptions import AccuLynxAPIError
@@ -352,3 +352,39 @@ class JobsMixin:
         except Exception as e:
             print(f"Error parsing jobs from search: {e}")
             raise
+
+    async def add_job_document(
+        self,
+        job_id: str,
+        *,
+        file_path: str,
+        document_folder_id: DocumentFolderID = DocumentFolderID.INVOICES,
+        description: Optional[str] = None
+    ) -> Dict:
+        """Upload a document to a job.
+        
+        Args:
+            job_id: The ID of the job
+            file_path: Path to the file to upload
+            document_folder_id: Folder ID to store the document in (default: Invoices)
+            description: Optional description of the document
+        """
+        with open(file_path, 'rb') as f:
+            files = {
+                'file': (os.path.basename(file_path), f, 'application/octet-stream')
+            }
+            data = {
+                'documentFolderId': document_folder_id.value
+            }
+            if description:
+                data['description'] = description
+
+            response = await self._client.post(
+                f"/jobs/{job_id}/documents",
+                data=data,
+                files=files
+            )
+            
+            if response.status_code >= 400:
+                self._handle_error(response)
+            return response.json()

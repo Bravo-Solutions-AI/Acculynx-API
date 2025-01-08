@@ -19,10 +19,10 @@ async def job_examples():
             # print(job)
             
             
-            job = await api.find_job_by_number(
-                job_number="BNX-5179"
+            await api.add_job_document(
+                job_id='2e59d1a4-99c4-444e-b9e9-d3ca209565de',
+                file_path="examples/test.pdf"
             )
-            print(job)
             
             # # Example 1: Get a single page of recent jobs
             # print("\n=== Recent Jobs ===")
