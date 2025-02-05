@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import List, Optional, Dict, Any, AsyncIterator, BinaryIO
 from ..models import Job
 from ..enums import DateFilterType, SortOrder, DocumentFolderID
@@ -170,21 +170,36 @@ class JobsMixin:
         self,
         job_id: str,
         *,
+        to: str,
         amount: float,
-        payment_date: date,
-        payment_type: str,
-        check_number: Optional[str] = None,
+        payment_date: datetime,
+        account_type_id: str,
+        is_paid: bool = True,
+        ref_number: Optional[str] = None,
         notes: Optional[str] = None,
     ) -> Dict:
-        """Create a new payment paid for a job."""
+        """Create a new payment paid for a job.
+        
+        Args:
+            job_id: The job's unique identifier
+            to: Payment paid to
+            amount: Amount of payment paid
+            payment_date: Payment datetime (UTC)
+            account_type_id: Id of account type
+            is_paid: Is Paid? (defaults to True)
+            ref_number: Optional reference number
+            notes: Optional note for the payment
+        """
         payload = {
+            "to": to,
             "amount": amount,
-            "paymentDate": payment_date.isoformat(),
-            "paymentType": payment_type,
+            "paymentDate": payment_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "accountTypeId": account_type_id,
+            "isPaid": is_paid
         }
 
-        if check_number:
-            payload["checkNumber"] = check_number
+        if ref_number:
+            payload["refNumber"] = ref_number
         if notes:
             payload["notes"] = notes
 

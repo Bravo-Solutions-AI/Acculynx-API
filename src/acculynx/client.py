@@ -11,7 +11,7 @@ from .exceptions import (
 )
 from .mixins.jobs import JobsMixin
 from .mixins.leads import LeadsMixin
-from .enums import DateFilterType, SortOrder
+from .enums import DateFilterType, SortOrder, AccountType
 from .cache import JobCache
 
 

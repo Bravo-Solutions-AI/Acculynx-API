@@ -1,8 +1,8 @@
 import asyncio
 import os
-from datetime import date
+from datetime import date, datetime
 from acculynx import AccuLynxAPI
-from acculynx.client import DateFilterType, SortOrder
+from acculynx.client import DateFilterType, SortOrder, AccountType
 from acculynx.exceptions import AccuLynxAPIError
 
 async def job_examples():
@@ -19,10 +19,24 @@ async def job_examples():
             # print(job)
             
             
-            await api.add_job_document(
-                job_id='2e59d1a4-99c4-444e-b9e9-d3ca209565de',
-                file_path="examples/test.pdf"
-            )
+            # await api.add_job_document(
+            #     job_id='76132e3e-0b1e-4341-869d-034e35d5e4dd',
+            #     file_path="examples/test.pdf"
+            # )
+            
+            ## Use datetime object directly instead of converting to ISO string
+            today = datetime.now()
+            
+            await api.create_payment_paid(
+                job_id='76132e3e-0b1e-4341-869d-034e35d5e4dd',
+                to="ABC",
+                amount=175.75,
+                payment_date=today,
+                account_type_id=AccountType.MATERIALS,
+                is_paid=True,
+                ref_number="1234567890"
+            )   
+            
             
             # # Example 1: Get a single page of recent jobs
             # print("\n=== Recent Jobs ===")
